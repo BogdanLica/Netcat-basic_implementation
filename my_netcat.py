@@ -22,7 +22,7 @@ def setup_parser():
 
 
     parser.add_argument('--upload',dest='upload',type=str,help='The destination of the file')
-    parser.add_argument('--execute', dest='execute', type=int,help='Start a shell')
+    parser.add_argument('--execute', dest='execute', type=int,help='Start a shell',default=0)
     parser.add_argument('--command', dest='command',type=str,help='Execute a command')
 
 
@@ -52,11 +52,22 @@ def os_commands_execute(command):
     command = command.rstrip()
 
     try:
-        output = subprocess.check_output(command,stderr=subprocess.STDOUT,shell=True)
+        proc2 = subprocess.Popen(command, shell=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    stdin=subprocess.PIPE)
+                    
+        output = proc2.stdout.read() + proc2.stderr.read()
     except:
         output = "Failed to execute the command specified \r\n"
 
     return output
+
+
+                
+
+
+
 
 
 def incomming_connection(settings_user):
@@ -71,37 +82,43 @@ def incomming_connection(settings_user):
         client_socket,addr = server.accept()
 
         print ("[*] Accepted connection from: %s:%d" %(addr[0],addr[1]))
-        client_thread = threading.Thread(target=client_handler,args=(client_socket,))
+        client_thread = threading.Thread(target=client_handler,args=(client_socket,settings_user,))
         client_thread.start()
+
+
+
+
 
 def shell(client_socket,settings_user):
     while True:
-        client_socket.send("<Easy-terpreter:#> ")
+        st='<Easy-terpreter:#>'
+        byt=st.encode()
+        client_socket.send(byt)
+
+
 
         commandline_buffer = ""
         while "\n" not in commandline_buffer:
-            commandline_buffer += client_socket.recv(1024)
-
-
+            commandline_buffer += client_socket.recv(1024).decode()
+            
         response = os_commands_execute(commandline_buffer)
 
         client_socket.send(response)
-    
+
 
 
 def upload_file(file):
     print ("Empty")
 
 
-### call from second parser
 def client_handler(client_socket,settings):
-    if len(settings.upload):
+    if settings.upload is not None:
         upload_file(settings.upload)
-    elif len(settings.execute):
+    elif settings.execute is not None:
         shell(client_socket,settings)
-    elif len(settings.command):
+    elif settings.command is not None:
         output = os_commands_execute(settings.command)
-        client_socket.send(output)
+        client_socket.send(output.encode())
     
 
 
@@ -112,13 +129,13 @@ def outgoing_connection(buffer,target,port):
     try:
         client.connect((target,port))
         if len(buffer):
-            client.send(buffer)
+            client.send(buffer.encode())
         
         while True:
             recv_length = 1
             response = ""
             while recv_length:
-                data = client.recv(4096)
+                data = client.recv(4096).decode()
                 recv_length = len(data)
                 response += data
 
@@ -130,7 +147,7 @@ def outgoing_connection(buffer,target,port):
             buffer += "\n"
 
 
-            client.send(buffer)
+            client.send(buffer.encode())
 
     except:
         print ("[*] Exception.Closing the program!")
