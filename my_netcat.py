@@ -42,7 +42,8 @@ def me_terpreter(initial_settings):
         incomming_connection(initial_settings)
     elif initial_settings.target and initial_settings.port:
         buffer = sys.stdin.read()
-        outgoing_connection(buffer,initial_settings.target,initial_settings.port[0])
+        # CTRL-D
+        outgoing_connection(buffer,str(initial_settings.target),initial_settings.port[0])
 
 
 
@@ -107,6 +108,7 @@ def client_handler(client_socket,settings):
 def outgoing_connection(buffer,target,port):
     client = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
 
+    print("Target : %s and port %s" %(target,port))
     try:
         client.connect((target,port))
         if len(buffer):
