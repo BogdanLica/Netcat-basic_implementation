@@ -3,6 +3,7 @@ import socket
 import subprocess
 import threading
 import sys
+import re
 from ipaddress import ip_address
 
 '''
@@ -22,7 +23,7 @@ def setup_parser():
 
 
     parser.add_argument('--upload',dest='upload',type=str,help='The destination of the file')
-    parser.add_argument('--execute', dest='execute', type=int,help='Start a shell',default=0)
+    parser.add_argument('--execute', dest='execute', action='store_true',help='Start a shell',default=True)
     parser.add_argument('--command', dest='command',type=str,help='Execute a command')
 
 
@@ -41,7 +42,7 @@ def me_terpreter(initial_settings):
     if initial_settings.listening == True:
         incomming_connection(initial_settings)
     elif initial_settings.target and initial_settings.port:
-        buffer = sys.stdin.read()
+        buffer = ""
         # CTRL-D
         outgoing_connection(buffer,str(initial_settings.target),initial_settings.port[0])
 
@@ -85,16 +86,11 @@ def incomming_connection(settings_user):
         client_thread = threading.Thread(target=client_handler,args=(client_socket,settings_user,))
         client_thread.start()
 
-
-
-
-
 def shell(client_socket,settings_user):
     while True:
-        st='<Easy-terpreter:#>'
-        byt=st.encode()
-        client_socket.send(byt)
-
+        user = os_commands_execute('whoami')
+        prompt = "%s :#> " %(user.decode().strip('\n'))
+        client_socket.send(prompt.strip('\n').encode())
 
 
         commandline_buffer = ""
@@ -104,7 +100,6 @@ def shell(client_socket,settings_user):
         response = os_commands_execute(commandline_buffer)
 
         client_socket.send(response)
-
 
 
 def upload_file(file):
